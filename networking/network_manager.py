@@ -2,6 +2,9 @@ from .network_handlers.enet_network_handler import ENetNetworkHandler
 
 
 def replicatable_class(cls):
+	if not hasattr(cls, "replication_vars"):
+		raise AttributeError("Replicatable class %s is missing a replication_vars attribute." % (cls))
+
 	def nm_setattr(self, name, value):
 		if name in self.replication_vars and hasattr(self, NetworkManager._var("dirty_set")):
 			getattr(self, NetworkManager._var("dirty_set")).add(name)
