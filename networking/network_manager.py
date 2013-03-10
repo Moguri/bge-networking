@@ -24,7 +24,7 @@ class NetworkManager:
 	ROLES = {"CLIENT", "SERVER"}
 	HANDLER_CLASS = ENetNetworkHandler
 
-	var_prefix = "_NM__"
+	_VAR_PREFIX = "_NM__"
 
 	def __init__(self, role, host, port):
 		if role not in self.ROLES:
@@ -41,7 +41,7 @@ class NetworkManager:
 
 	@classmethod
 	def _var(cls, var):
-		return cls.var_prefix+var
+		return cls._VAR_PREFIX+var
 
 	@classmethod
 	def create_server(cls, port):
@@ -57,8 +57,6 @@ class NetworkManager:
 
 	def register_actor(self, actor):
 		if actor not in self._actors:
-			setattr(actor, self._var("dirty_set"), set())
-
 			self._actors.add(actor)
 		else:
 			print("Warning, actor already added")
@@ -70,13 +68,13 @@ class NetworkManager:
 			print("Warning, actor not registered")
 
 	def run(self):
-
-		# Find any dirty attributes that we need to replicate
-		for actor in self._actors:
-			for var in getattr(actor, self._var("dirty_set")):
-				print(actor.__class__.__name__, "dirty var", var, "value:", getattr(actor, var))
-
-			setattr(actor, self._var("dirty_set"), set())
-
 		# Process any events on the handler
 		self.handler.process_events()
+
+		# Find any dirty attributes that we need to replicate
+		if self.connected:
+			for actor in self._actors:
+				for var in getattr(actor, self._var("dirty_set")):
+					print(actor.__class__.__name__, "dirty var", var, "value:", getattr(actor, var))
+
+				setattr(actor, self._var("dirty_set"), set())
