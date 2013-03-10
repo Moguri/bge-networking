@@ -26,7 +26,7 @@ class ENetNetworkHandler:
 
 		while event.type != enet.EVENT_TYPE_NONE:
 			if event.type == enet.EVENT_TYPE_CONNECT:
-				self.connnected = True
+				self.connected = True
 				print("Connected: %s" % event.peer.address)
 			elif event.type == enet.EVENT_TYPE_DISCONNECT:
 				self.connected = False
