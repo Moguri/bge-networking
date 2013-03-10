@@ -31,7 +31,7 @@ class NetworkManager:
 
 	def __init__(self, role, host, port):
 		if role not in self.ROLES:
-			raise TypeError("Supplied role (%s) is not valid. Expected a role in %s." % (role, self.ROLES))
+			raise ValueError("Supplied role (%s) is not valid. Expected a role in %s." % (role, self.ROLES))
 
 		self.role = role
 
