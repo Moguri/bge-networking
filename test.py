@@ -9,9 +9,9 @@ if __name__ == '__main__':
 	else:
 		print("Creating client...")
 		nm = NetworkManager.create_client(b"localhost", 9999)
-		
+
 	# Run for 10 seconds
 	start = time.time()
-	
+
 	while time.time() - start < 10:
 		nm.run()
