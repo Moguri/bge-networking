@@ -26,6 +26,7 @@ class NetworkManager:
 
 	ROLES = {"CLIENT", "SERVER"}
 	HANDLER_CLASS = ENetNetworkHandler
+	SERIALIZER_CLASS = PickleNetworkSerializer
 
 	_VAR_PREFIX = "_NM__"
 
@@ -36,9 +37,9 @@ class NetworkManager:
 		self.role = role
 
 		if role == "SERVER":
-			self.handler = self.HANDLER_CLASS.create_server(host, port)
+			self.handler = self.HANDLER_CLASS.create_server(self.SERIALIZER_CLASS, host, port)
 		elif role == "CLIENT":
-			self.handler = self.HANDLER_CLASS.create_client(host, port)
+			self.handler = self.HANDLER_CLASS.create_client(self.SERIALIZER_CLASS, host, port)
 
 		self._actors = set()
 

@@ -1,9 +1,17 @@
 import enet
 
 
+class ENetClient:
+	def __init__(self, peer, serializer):
+		self.peer = peer
+		self.serializer = serializer
+
+	def send(self, msg):
+		self.peer.send(0, enet.Packet(self.serializer.to_network(msg)))
+
 class ENetNetworkHandler:
 
-	def __init__(self, is_server, host, port):
+	def __init__(self, is_server, serializer, host, port):
 		self.connected = False
 
 		if is_server:
@@ -13,15 +21,18 @@ class ENetNetworkHandler:
 			self.host = enet.Host(None, 1, 2, 0, 0)
 			self.peer = self.host.connect(enet.Address(host, port), 1)
 
-	@classmethod
-	def create_server(cls, host, port):
-		return cls(True, host, port)
+		self.serializer = serializer()
 
 	@classmethod
-	def create_client(cls, host, port):
-		return cls(False, host, port)
+	def create_server(cls, serializer, host, port):
+		return cls(True, serializer, host, port)
+
+	@classmethod
+	def create_client(cls, serializer, host, port):
+		return cls(False, serializer, host, port)
 
 	def process_events(self):
+		retval = []
 		event = self.host.service(0)
 
 		while event.type != enet.EVENT_TYPE_NONE:
@@ -32,6 +43,13 @@ class ENetNetworkHandler:
 				self.connected = False
 				print("Disconnected: %s" % event.peer.address)
 			elif event.type == enet.EVENT_TYPE_RECEIVE:
-				print("Message from %s: %s" % (event.peer.address, event.packet.data))
+				data = self.serializer.from_network(event.packet.data)
+				print("Message from %s: %s" % (event.peer.address, data))
+				retval.append((ENetClient(event.peer), data))
 
 			event = self.host.service(0)
+
+		return retval
+
+	def send(self, msg):
+		self.peer.send(0, enet.Packet(self.serializer.to_network(msg)))
