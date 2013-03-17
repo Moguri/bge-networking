@@ -1,4 +1,5 @@
 from .network_handlers.enet_network_handler import ENetNetworkHandler
+from .network_serializers.pickle_serializer import PickleNetworkSerializer
 
 
 def replicatable_class(cls):
@@ -19,6 +20,9 @@ def replicatable_class(cls):
 	# Now override the classes __setattr__ with our own
 	cls.__setattr__ = nm_setattr
 
+	# Store the class on the NetworkManager
+	NetworkManager.classes[cls.__name__] = cls
+
 	return cls
 
 
@@ -27,6 +31,8 @@ class NetworkManager:
 	ROLES = {"CLIENT", "SERVER"}
 	HANDLER_CLASS = ENetNetworkHandler
 	SERIALIZER_CLASS = PickleNetworkSerializer
+
+	classes = {}
 
 	_VAR_PREFIX = "_NM__"
 
@@ -41,11 +47,14 @@ class NetworkManager:
 		elif role == "CLIENT":
 			self.handler = self.HANDLER_CLASS.create_client(self.SERIALIZER_CLASS, host, port)
 
-		self._actors = set()
+		self._actors = {}
+
+		# Internal counter for ids
+		self.next_id = 0
 
 	@classmethod
 	def _var(cls, var):
-		return cls._VAR_PREFIX+var
+		return cls._VAR_PREFIX + var
 
 	@classmethod
 	def create_server(cls, port):
@@ -60,8 +69,14 @@ class NetworkManager:
 		return self.handler.connected
 
 	def register_actor(self, actor):
-		if actor not in self._actors:
-			self._actors.add(actor)
+		if not hasattr(actor, self._var("id")):
+			aid = '#' + str(self.next_id)
+			self.next_id += 1
+
+			setattr(actor, self._var("id"), aid)
+			setattr(actor, self._var("own"), True)
+			self._actors[aid] = actor
+			self.handler.send(("REG", actor.__class__.__name__, aid))
 		else:
 			print("Warning, actor already added")
 
@@ -73,12 +88,45 @@ class NetworkManager:
 
 	def run(self):
 		# Process any events on the handler
-		self.handler.process_events()
+		events = self.handler.process_events()
+		for event in events:
+			data = event[1]
+
+			if self.role == "SERVER":
+				if data[0] == "REG":
+					aid = data[2][1:]
+					while aid in self._actors:
+						aid = str(int(aid) + 1)
+
+					actor = self.classes[data[1]].network_new()
+					setattr(actor, self._var("id"), aid)
+					setattr(actor, self._var("own"), True)
+					self._actors[aid] = actor
+
+					self.handler.send(("REG", data[1], data[2], aid))
+			else:
+				if data[0] == "REG":
+					if data[2] in self._actors:
+						actor = self._actors[data[2]]
+						del self._actors[data[2]]
+					else:
+						actor = self.classes[data[1]].network_new()
+						setattr(actor, self._var("own"), False)
+
+					setattr(actor, self._var("id"), data[3])
+					self._actors[data[3]] = actor
+
 
 		# Find any dirty attributes that we need to replicate
 		if self.connected:
-			for actor in self._actors:
+			for aid, actor in self._actors.items():
+				if aid.startswith('#') or not getattr(actor, self._var("own")):
+					# If the actor's id start's with '#', then it hasn't yet be registered, with the server,
+					# so skip it. Otherwise, if we don't own it, we shouldn't be sending updates.
+					continue
+
 				for var in getattr(actor, self._var("dirty_set")):
 					print(actor.__class__.__name__, "dirty var", var, "value:", getattr(actor, var))
+					self.handler.send(("REP", aid, var, getattr(actor, var)))
 
 				setattr(actor, self._var("dirty_set"), set())

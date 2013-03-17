@@ -10,6 +10,10 @@ class Actor:
 	def __init__(self):
 		self.foo = 10
 
+	@classmethod
+	def network_new(cls):
+		return cls()
+
 if __name__ == '__main__':
 	if len(sys.argv) > 1 and sys.argv[1] == "server":
 		print("Creating server...")
@@ -17,6 +21,8 @@ if __name__ == '__main__':
 	else:
 		print("Creating client...")
 		nm = NetworkManager.create_client(b"localhost", 9999)
+		while not nm.connected:
+			nm.run()
 		a = Actor()
 		nm.register_actor(a)
 
